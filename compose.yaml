@@ -1,0 +1,128 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: airline-ops-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - airline_ops_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  airflow-postgres:
+    image: postgres:16-alpine
+    container_name: airline-ops-airflow-postgres
+    environment:
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  airflow-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    image: airline-ops-airflow:3.3.2
+    container_name: airline-ops-airflow-init
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+    environment: &airflow-environment
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-api-server:8080/execution/
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg://airflow:${AIRFLOW_DB_PASSWORD}@airflow-postgres/airflow
+      AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET}
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DBT_TARGET_PATH: /opt/airflow/dbt-target
+      DBT_LOG_PATH: /opt/airflow/logs/dbt
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USERNAME}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+    command: version
+
+  airflow-api-server:
+    image: airline-ops-airflow:3.3.2
+    container_name: airline-ops-airflow-api-server
+    depends_on: &airflow-dependencies
+      postgres:
+        condition: service_healthy
+      airflow-postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    environment: *airflow-environment
+    command: api-server
+    ports:
+      - "${AIRFLOW_PORT:-8080}:8080"
+    volumes: &airflow-volumes
+      - ./airflow/dags:/opt/airflow/dags:ro
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/dbt-target:/opt/airflow/dbt-target
+      - ./data:/opt/airflow/project/data
+      - ./dbt:/opt/airflow/project/dbt:ro
+      - ./dbt_project.yml:/opt/airflow/project/dbt_project.yml:ro
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  airflow-scheduler:
+    image: airline-ops-airflow:3.3.2
+    container_name: airline-ops-airflow-scheduler
+    depends_on: *airflow-dependencies
+    environment: *airflow-environment
+    command: scheduler
+    volumes: *airflow-volumes
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$${HOSTNAME}\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  airflow-dag-processor:
+    image: airline-ops-airflow:3.3.2
+    container_name: airline-ops-airflow-dag-processor
+    depends_on: *airflow-dependencies
+    environment: *airflow-environment
+    command: dag-processor
+    volumes: *airflow-volumes
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type DagProcessorJob --hostname \"$${HOSTNAME}\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  airline_ops_postgres_data:
+  airflow_postgres_data:

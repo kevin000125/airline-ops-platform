@@ -1,0 +1,34 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Local data can be large and should not be committed.
+data/raw/**
+data/interim/**
+data/processed/**
+!data/raw/.gitkeep
+!data/raw/bts/
+!data/raw/bts/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+
+# Local notebooks sometimes create checkpoints and temporary exports.
+*.log
+
+# dbt build artifacts
+dbt/.user.yml
+dbt/target/
+dbt/logs/
+dbt_packages/
+
+# Airflow runtime artifacts
+airflow/logs/*
+!airflow/logs/.gitkeep
+airflow/dbt-target/*
+!airflow/dbt-target/.gitkeep

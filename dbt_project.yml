@@ -1,0 +1,18 @@
+name: airline_ops
+version: 1.0.0
+config-version: 2
+
+profile: airline_ops
+
+model-paths: ["dbt/models"]
+test-paths: ["dbt/tests"]
+clean-targets:
+  - "dbt/target"
+  - "dbt_packages"
+
+models:
+  airline_ops:
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table

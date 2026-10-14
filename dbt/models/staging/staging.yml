@@ -1,0 +1,11 @@
+version: 2
+
+models:
+  - name: stg_bts_flights
+    description: Clean, typed flight-leg records with a deterministic business key.
+    columns:
+      - name: flight_record_id
+        description: Hash of flight date, carrier, flight number, origin, and destination.
+        data_tests:
+          - not_null
+          - unique

@@ -1,0 +1,6 @@
+*
+!Dockerfile.airflow
+!pyproject.toml
+!README.md
+!src/
+!src/**

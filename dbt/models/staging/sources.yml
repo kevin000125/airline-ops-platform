@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: warehouse_staging
+    description: Flight records loaded from typed monthly Parquet files.
+    schema: staging
+    tables:
+      - name: bts_flights
+        description: One scheduled flight leg operated on a specific date.

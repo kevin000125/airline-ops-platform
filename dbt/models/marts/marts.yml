@@ -1,0 +1,36 @@
+version: 2
+
+models:
+  - name: fct_flights
+    description: One row per scheduled flight leg for operational analysis.
+    columns:
+      - name: flight_status
+        description: Operational outcome derived from cancellation and diversion indicators.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [operated, cancelled, diverted]
+
+  - name: dim_airlines
+    description: Airlines observed in the loaded BTS flight records.
+    columns:
+      - name: airline_code
+        data_tests:
+          - not_null
+          - unique
+
+  - name: dim_airports
+    description: Origin and destination airports observed in flight records.
+    columns:
+      - name: airport_code
+        data_tests:
+          - not_null
+          - unique
+
+  - name: ops_monthly_quality
+    description: Monthly row counts and operational rates used for pipeline observability.
+    columns:
+      - name: reporting_month
+        data_tests:
+          - not_null
+          - unique
